@@ -1,7 +1,9 @@
 # WhatsApp Life/Academic Assistant — Living Project Doc
 
-Status: In Progress — Completing Phase 0. Last updated 2026-08-13.
+Status: Phase 0 complete — starting Phase 1. Last updated 2026-08-13.
 This is the source of truth. Re-read this file at the start of every session on this project.
+
+Repo: https://github.com/sgshimberg/AI-Slop-Assistant (main branch)
 
 ## Vision
 A WhatsApp-based assistant that ingests my syllabi, Moodle data, class schedule, and
@@ -64,8 +66,8 @@ Whenever two calendar events overlap, the backend calculates:
 - **Moodle API Access**: Web Service tokens disabled by NC State. Locked in fallback to Moodle's built-in `.ics` calendar export feed feed parsed via Python `icalendar`.
 
 ## Phased Roadmap (each phase has a concrete test gate — don't advance until it passes)
-0. **Foundations** — Collect API credentials (Moodle ICS URL, Google Calendar OAuth, Twilio WhatsApp Sandbox, Google Tasks, OpenWeatherMap, Anthropic).
-   *Test: running the six individual hello-world integration scripts successfully validates real keys.*
+0. ✅ **Foundations** — Collect API credentials (Moodle ICS URL, Google Calendar OAuth, Twilio WhatsApp Sandbox, Google Tasks, OpenWeatherMap, Anthropic).
+   *Test: running the six individual hello-world integration scripts successfully validates real keys. — PASSED 2026-08-13.*
 1. **Google Calendar core** — script can create/update/delete events programmatically.
    *Test: round-trip a test event via code.*
 2. **Moodle Ingestion (.ics)** — pull and parse the live .ics feed into structured JSON data.
@@ -91,4 +93,8 @@ Whenever two calendar events overlap, the backend calculates:
 ## Status Log
 - 2026-08-12: Captured problem statement, condensed into living doc. Locked in Phase 0 decisions. Scaffolded repo structure. Wrote basic hello-world boilerplate scripts.
 - 2026-08-13: Updated blueprint to replace static hierarchy with dynamic algorithmic calendar scoring. Accounted for NC State's Moodle token restriction by locking in the `.ics` strategy. Accounted for the Twilio 24h sandbox constraint. Ready to finish Phase 0 hello-world integration verification.
+- 2026-08-13: **Phase 0 complete.** All six integrations (Twilio WhatsApp sandbox, Google Calendar, Google Tasks, Moodle ICS, OpenWeatherMap, Anthropic) validated with real credentials. Pushed initial codebase to GitHub: https://github.com/sgshimberg/AI-Slop-Assistant.
+  - Google OAuth consent already completed locally — `credentials.json` and a cached `token.json` exist in the working tree (both gitignored). Phase 1 (Google Calendar core) can start without redoing the OAuth flow, as long as work continues on this machine; a fresh clone/machine will need `token.json` regenerated via one-time browser consent (see CREDENTIALS.md).
+  - Reminder for Phase 6+ (WhatsApp bot): Twilio sandbox requires an inbound message every 24h or outbound sends silently fail — still unresolved, revisit before relying on the 4AM digest (see Decisions above).
+  - `.env`, `credentials.json`, `token.json`, `.venv/`, and `data/` confirmed excluded via `.gitignore` — verified no secrets were committed.
 
