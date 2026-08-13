@@ -1,6 +1,6 @@
 # Phase 1 — Google Calendar Core (CRUD)
 
-Status: spec only, no code yet. Test gate (PROJECT.md): round-trip a test event via code.
+Status: complete — PASSED 2026-08-13. Test gate (PROJECT.md): round-trip a test event via code.
 
 ## Scope
 CRUD for calendar events in `src/integrations/google_calendar.py`. No dedupe, recurrence,

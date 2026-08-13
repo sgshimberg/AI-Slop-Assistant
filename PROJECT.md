@@ -1,6 +1,6 @@
 # WhatsApp Life/Academic Assistant — Living Project Doc
 
-Status: Phase 0 complete. Phase 1 design spec written (docs/PHASE1.md), code not started. Last updated 2026-08-13.
+Status: Phase 1 complete. Last updated 2026-08-13.
 This is the source of truth. Re-read this file at the start of every session on this project.
 
 Repo: https://github.com/sgshimberg/AI-Slop-Assistant (main branch)
@@ -68,8 +68,8 @@ Whenever two calendar events overlap, the backend calculates:
 ## Phased Roadmap (each phase has a concrete test gate — don't advance until it passes)
 0. ✅ **Foundations** — Collect API credentials (Moodle ICS URL, Google Calendar OAuth, Twilio WhatsApp Sandbox, Google Tasks, OpenWeatherMap, Anthropic).
    *Test: running the six individual hello-world integration scripts successfully validates real keys. — PASSED 2026-08-13.*
-1. **Google Calendar core** — script can create/update/delete events programmatically.
-   *Test: round-trip a test event via code.* → see [docs/PHASE1.md](docs/PHASE1.md)
+1. ✅ **Google Calendar core** — script can create/update/delete events programmatically.
+   *Test: round-trip a test event via code.* → see [docs/PHASE1.md](docs/PHASE1.md) — PASSED 2026-08-13.
 2. **Moodle Ingestion (.ics)** — pull and parse the live .ics feed into structured JSON data.
    *Test: dump current semester's Moodle events to JSON, verify weights/dates by hand.*
 3. **Syllabus parser** — Claude API extracts weights/due dates/exam dates from real syllabi using strict JSON schemas.
@@ -98,4 +98,6 @@ Whenever two calendar events overlap, the backend calculates:
   - Reminder for Phase 6+ (WhatsApp bot): Twilio sandbox requires an inbound message every 24h or outbound sends silently fail — still unresolved, revisit before relying on the 4AM digest (see Decisions above).
   - `.env`, `credentials.json`, `token.json`, `.venv/`, and `data/` confirmed excluded via `.gitignore` — verified no secrets were committed.
 - 2026-08-13: Phase 1 design spec written (docs-only, no code yet) — see [docs/PHASE1.md](docs/PHASE1.md).
+- 2026-08-13: **Phase 1 complete.** Implemented `create_event`/`get_event`/`update_event`/`delete_event` in `src/integrations/google_calendar.py` per spec. OAuth scope widened from `calendar.readonly` to `calendar` (write) in `google_auth.py`; re-consented after deleting the stale readonly token. Added `tests/test_google_calendar_roundtrip.py`, which passed against the live Calendar API (create → get → update → get → delete → get confirms `cancelled`). Added `pytest` to `requirements.txt`.
+- 2026-08-13: Added `scripts/demo_calendar_roundtrip.py` (manual, paused, visual round-trip demo) and `scripts/create_test_calendar.py` (idempotent setup for a dedicated `testing` Google Calendar, ID stored as `GOOGLE_TEST_CALENDAR_ID`). CRUD functions gained an optional `calendar_id` param (defaults to `primary`, unchanged for production use); the test suite and demo script now target `testing` instead of primary. Along the way, fixed a latent bug in the round-trip test's datetime assertion — it string-compared raw `dateTime` values, which only worked by coincidence on primary; now compares actual instants via `zoneinfo`.
 

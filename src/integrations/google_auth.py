@@ -9,7 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from src import config
 
 SCOPES = [
-    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/calendar",
     "https://www.googleapis.com/auth/tasks.readonly",
 ]
 

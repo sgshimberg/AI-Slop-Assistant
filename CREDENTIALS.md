@@ -42,6 +42,9 @@ git-ignored — never commit it.
    `token.json` automatically. Delete `token.json` to force re-consent.
 7. Phase 1 (see docs/PHASE1.md) needs calendar write access — scope moves from
    `calendar.readonly` to `calendar`. Delete `token.json` before the first Phase 1 run.
+8. Phase 1 tests/demos run against a dedicated `testing` calendar, not primary. Run
+   `python -m scripts.create_test_calendar` once (creates it if missing, safe to
+   re-run) and put the printed ID in `.env` as `GOOGLE_TEST_CALENDAR_ID`.
 
 ## Moodle
 1. Log in to NC State's Moodle → Preferences → **Security keys** (a.k.a. "Manage

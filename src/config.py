@@ -21,6 +21,7 @@ TWILIO_CONTENT_VARIABLES = os.environ.get("TWILIO_CONTENT_VARIABLES", "")
 
 GOOGLE_CLIENT_SECRET_FILE = os.environ.get("GOOGLE_CLIENT_SECRET_FILE", "./credentials.json")
 GOOGLE_TOKEN_FILE = os.environ.get("GOOGLE_TOKEN_FILE", "./token.json")
+GOOGLE_TEST_CALENDAR_ID = os.environ.get("GOOGLE_TEST_CALENDAR_ID", "")
 
 MOODLE_BASE_URL = os.environ.get("MOODLE_BASE_URL", "")
 MOODLE_TOKEN = os.environ.get("MOODLE_TOKEN", "")
