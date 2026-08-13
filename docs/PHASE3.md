@@ -1,7 +1,11 @@
 # Phase 3 — Syllabus Parser
 
-Status: design spec written — no code yet. Test gate (PROJECT.md): parse 2–3 actual
-syllabi, manually verify accuracy.
+Status: **implemented and passed** — see `src/integrations/syllabus.py`,
+`scripts/parse_courses.py`, `tests/test_syllabus_parse.py`. Test gate (PROJECT.md):
+parse 2–3 actual syllabi, manually verify accuracy — ran against all 6 real ECE
+courses in `data/courses/`; weights, dates, and cross-referencing all checked out,
+with zero documents left unclassified. One limitation was found and fixed along the
+way — see below.
 
 ## Scope
 Parse a course's real documents (PDF and/or `.docx`) into one structured JSON record
@@ -58,12 +62,20 @@ def identify_course(text: str, model: str = "claude-sonnet-5") -> str: ...
     # extraction below -- classification shouldn't fail just because a document
     # is messy in some other way, and it's cheap/fast to run per-file.
 
-def group_by_course(dir_path: Path) -> dict[str, list[Path]]: ...
+def group_by_course(dir_path: Path, ask_human: AskHuman | None = None) -> dict[str, list[Path]]: ...
     # Globs every supported file directly under dir_path (flat, no subfolders),
     # runs identify_course on each, and groups paths by the returned code.
     # The dict key is additionally whitespace/case-normalized as a safety net
     # against minor formatting drift between documents for the same course
     # (e.g. "ECE220" vs "ECE 220" collapse to the same group).
+    #
+    # A document identify_course can't place gets two more chances rather than a
+    # guess: content-based reconciliation against already-classified courses first
+    # (_reconcile_unknowns), then — only if that also comes back empty — the
+    # optional ask_human(path, text, known_course_codes) callback, so a genuinely
+    # unresolvable document surfaces as a direct question instead of a silent
+    # misfile. Default None preserves the old (library-only, non-interactive)
+    # behavior; scripts/parse_courses.py wires it to a terminal prompt.
 
 def parse_course_documents(paths: list[Path], model: str = "claude-sonnet-5") -> dict: ...
     # Extracts text from every path, concatenates with a
@@ -155,3 +167,78 @@ over a class-document date when the same item exists in both. This phase's `due`
 a fallback the merge engine uses only for items Moodle doesn't carry (e.g. exams
 often aren't Moodle calendar entries). This phase's `categories`/weights, by
 contrast, have no Moodle equivalent and are authoritative as-is.
+
+## Known limitation (found during the manual test gate — since resolved)
+The "course name is always stated somewhere in the document" assumption doesn't
+universally hold: `ECE220-Fall25 - Course Schedule - DY Eun (2).pdf` is a bare weekly
+grid (topics/HW/lab columns) that never states "ECE 220" or "Analytical Foundations"
+anywhere in its extracted text — confirmed by inspecting the raw extracted text
+directly. `identify_course` has no grounding to work from on a document like this,
+and without an explicit escape hatch it **hallucinated** a course code — two
+different runs produced two different wrong answers (`"&LT;UNKNOWN&GT;"`, then
+`"ENGR 260"`) instead of reliably admitting it couldn't tell. That's a correctness
+risk beyond just "one document lands in the wrong group" — a hallucinated real course
+code could have silently merged this document's content into an unrelated course's
+grade record.
+
+First fix, in `identify_course`'s prompt/schema: it must return the literal string
+`"UNKNOWN"` (`syllabus.UNKNOWN_COURSE`) when no course code or department is
+explicitly stated, rather than inferring one from topic/content. `group_by_course`
+also treats any code containing the substring `UNKNOWN` (case/wrapper-noise-tolerant,
+to survive odd model formatting like the `&LT;...&GT;` case above) as unclassifiable,
+and — important — does **not** lump multiple unclassifiable documents into one shared
+bucket, since two different real courses' orphan documents could land there and get
+cross-referenced as if they were the same course. Each gets its own
+`"UNKNOWN: <filename>"` key so it's visible for manual reconciliation instead of
+silently mis-filed.
+
+That alone still left the document stranded as its own one-off group needing manual
+merging by hand — not wrong, but not what the phase is supposed to deliver
+automatically. **Second fix — content-based reconciliation**, added as a step after
+initial grouping: `_reconcile_unknowns` takes every `"UNKNOWN: <filename>"` document
+and asks Claude (`_match_unknown_to_candidate`, forced tool-use) to compare its
+content against a sample of each *already content-classified* course's documents —
+specific overlap only (same chapter/topic sequence, same named tests/labs), never a
+generic "both are intro engineering courses" match, and `null` when not confident.
+Candidates are always real, already-identified courses — never another unclassifiable
+document, for the same reason the shared-bucket fallback above was rejected: two
+orphans matching each other on nothing would just relocate the corruption risk rather
+than remove it. Confirmed against the real `data/courses/` dropbox: the schedule PDF
+now correctly reconciles into `"ECE 220"` — its topic sequence (Ch 2 Signals, Ch 4
+Complex Numbers, Ch 8 Laplace Transform, Ch 9 Fourier Series...) matches the ECE 220
+syllabus already grouped from `ECE220-Fall25 - Syllabus -DY Eun (1).pdf` — and the
+merged `ECE 220` record correctly carries homework/midterm/final due dates pulled
+from the schedule alongside the category weights from the syllabus, exactly the
+weights+dates cross-referencing this phase was designed to do. All 6 real courses in
+`data/courses/` now group with zero leftover `UNKNOWN` keys.
+
+Also added while re-verifying against real output: `parse_course_documents` now
+defaults a missing `notes` key to `None` (the tool schema allows omitting it, and one
+real response did) so the field is reliably present for downstream code, and warns
+(via `warnings.warn`, not a hard error, per the Data model table's original intent)
+when a course's category weights don't sum to ~1.0 — not triggered by any of the 6
+real courses, but exercised in `tests/test_syllabus_parse.py` against a mocked
+lopsided response.
+
+**Third fix, per your explicit instruction: ask, don't guess.** Content-based
+reconciliation resolves the common case (a companion document for a course that's
+already been identified elsewhere), but there's still a real scenario it can't cover:
+the *first* document dropped for a brand-new course, with no identifying information
+in its own text and no sibling document yet to content-match against — nothing in
+`data/courses/` exercises this today, but it will happen once you're uploading a
+single syllabus at a time rather than a whole semester's batch. For that case,
+`group_by_course`/`parse_all_courses` now take an optional `ask_human` callback
+(`AskHuman = Callable[[Path, str, list[str]], str | None]`, see
+src/integrations/syllabus.py) — invoked only after both `identify_course` and
+`_reconcile_unknowns` have already come back empty, with the document's path, text,
+and the courses identified so far. `scripts/parse_courses.py` wires this to a
+terminal prompt (prints the filename, known courses, and a text excerpt, then
+`input()`s your answer) — blank/unsure answers leave the document under its
+`"UNKNOWN: <filename>"` key rather than forcing a choice. This is the same
+`(document, context) -> answer` shape a future WhatsApp round-trip (Phase 6+) would
+need, so upgrading the interaction later is a matter of swapping the callback, not
+rewriting the classification pipeline. Default is `None` (no prompting), so calling
+`group_by_course`/`parse_all_courses` without it behaves exactly as before —
+`tests/test_syllabus_parse.py` covers being asked on failure, not being asked when
+content-matching already succeeded, and staying unresolved when the human doesn't
+know either.

@@ -47,3 +47,15 @@ pytest
 The Calendar test suite runs against a dedicated `testing` Google Calendar (not
 primary) — see `GOOGLE_TEST_CALENDAR_ID` in `.env.example` and
 `scripts/create_test_calendar.py`.
+
+## Test bench
+
+```
+python -m scripts.test_bench
+```
+
+A single interactive menu covering every automated test and manual/live check
+across Phases 0–3 — no need to remember each module's own `python -m ...`
+invocation. Items that cost money, send a real message, or hit a live API are
+labeled and, where they have a real-world side effect (e.g. sending a WhatsApp
+message), prompt for confirmation first.
