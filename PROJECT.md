@@ -1,6 +1,6 @@
 # WhatsApp Life/Academic Assistant — Living Project Doc
 
-Status: Phase 0 complete — starting Phase 1. Last updated 2026-08-13.
+Status: Phase 0 complete. Phase 1 design spec written (docs/PHASE1.md), code not started. Last updated 2026-08-13.
 This is the source of truth. Re-read this file at the start of every session on this project.
 
 Repo: https://github.com/sgshimberg/AI-Slop-Assistant (main branch)
@@ -69,7 +69,7 @@ Whenever two calendar events overlap, the backend calculates:
 0. ✅ **Foundations** — Collect API credentials (Moodle ICS URL, Google Calendar OAuth, Twilio WhatsApp Sandbox, Google Tasks, OpenWeatherMap, Anthropic).
    *Test: running the six individual hello-world integration scripts successfully validates real keys. — PASSED 2026-08-13.*
 1. **Google Calendar core** — script can create/update/delete events programmatically.
-   *Test: round-trip a test event via code.*
+   *Test: round-trip a test event via code.* → see [docs/PHASE1.md](docs/PHASE1.md)
 2. **Moodle Ingestion (.ics)** — pull and parse the live .ics feed into structured JSON data.
    *Test: dump current semester's Moodle events to JSON, verify weights/dates by hand.*
 3. **Syllabus parser** — Claude API extracts weights/due dates/exam dates from real syllabi using strict JSON schemas.
@@ -97,4 +97,5 @@ Whenever two calendar events overlap, the backend calculates:
   - Google OAuth consent already completed locally — `credentials.json` and a cached `token.json` exist in the working tree (both gitignored). Phase 1 (Google Calendar core) can start without redoing the OAuth flow, as long as work continues on this machine; a fresh clone/machine will need `token.json` regenerated via one-time browser consent (see CREDENTIALS.md).
   - Reminder for Phase 6+ (WhatsApp bot): Twilio sandbox requires an inbound message every 24h or outbound sends silently fail — still unresolved, revisit before relying on the 4AM digest (see Decisions above).
   - `.env`, `credentials.json`, `token.json`, `.venv/`, and `data/` confirmed excluded via `.gitignore` — verified no secrets were committed.
+- 2026-08-13: Phase 1 design spec written (docs-only, no code yet) — see [docs/PHASE1.md](docs/PHASE1.md).
 

@@ -40,6 +40,8 @@ git-ignored — never commit it.
    matches `GOOGLE_CLIENT_SECRET_FILE` in `.env.example`).
 6. First script run opens a browser for one-time consent; it caches a refresh token to
    `token.json` automatically. Delete `token.json` to force re-consent.
+7. Phase 1 (see docs/PHASE1.md) needs calendar write access — scope moves from
+   `calendar.readonly` to `calendar`. Delete `token.json` before the first Phase 1 run.
 
 ## Moodle
 1. Log in to NC State's Moodle → Preferences → **Security keys** (a.k.a. "Manage
