@@ -1,16 +1,32 @@
-"""Phase 0 hello-world: list upcoming Moodle calendar events.
+"""Moodle calendar ingestion: fetch the .ics feed and parse it into structured events.
 
 Run:  python -m src.integrations.moodle
 Tries the Moodle web service API first (MOODLE_TOKEN); falls back to the personal
 calendar ICS export feed (MOODLE_ICS_URL) if no token is available — see CREDENTIALS.md.
+
+`fetch_ics_text` (network) and `parse_ics` (pure) are split so `parse_ics` can run
+against a static fixture file with no network/`.env` dependency — see docs/PHASE2.md.
 """
 
 import datetime
+import re
 
 import requests
 from icalendar import Calendar
 
 from src import config
+
+_TYPE_KEYWORDS = [
+    ("exam", "exam"),
+    ("quiz", "quiz"),
+    ("is due", "assignment"),
+    ("homework", "assignment"),
+    ("assignment", "assignment"),
+    ("project", "assignment"),
+]
+
+_COURSE_PREFIX_RE = re.compile(r"^([A-Z]{2,5}\s?\d{3}[A-Z]?):\s*(.+)$")
+_DUE_SUFFIX_RE = re.compile(r"\s+is due$", re.IGNORECASE)
 
 
 def _via_api() -> list[dict]:
@@ -31,11 +47,32 @@ def _via_api() -> list[dict]:
     ]
 
 
-def _via_ics() -> list[dict]:
-    response = requests.get(config.MOODLE_ICS_URL, timeout=15)
+def fetch_ics_text(url: str) -> str:
+    response = requests.get(url, timeout=15)
     response.raise_for_status()
-    cal = Calendar.from_ical(response.text)
-    now = datetime.datetime.now(datetime.timezone.utc)
+    return response.text
+
+
+def _classify_type(raw_summary: str) -> str:
+    lowered = raw_summary.lower()
+    for keyword, event_type in _TYPE_KEYWORDS:
+        if keyword in lowered:
+            return event_type
+    return "other"
+
+
+def _split_course_and_name(raw_summary: str) -> tuple[str | None, str]:
+    match = _COURSE_PREFIX_RE.match(raw_summary)
+    if not match:
+        return None, raw_summary
+    course, rest = match.group(1), match.group(2)
+    name = _DUE_SUFFIX_RE.sub("", rest)
+    return course, name
+
+
+def parse_ics(ics_text: str) -> list[dict]:
+    """Parse ICS text into structured events. Pure — no network, no date filtering."""
+    cal = Calendar.from_ical(ics_text)
     events = []
     for component in cal.walk("VEVENT"):
         start = component.get("dtstart").dt
@@ -43,9 +80,28 @@ def _via_ics() -> list[dict]:
             start = datetime.datetime.combine(start, datetime.time.min, tzinfo=datetime.timezone.utc)
         if start.tzinfo is None:
             start = start.replace(tzinfo=datetime.timezone.utc)
-        if start >= now:
-            events.append({"name": str(component.get("summary")), "when": start})
-    return sorted(events, key=lambda e: e["when"])
+
+        raw_summary = str(component.get("summary"))
+        course, name = _split_course_and_name(raw_summary)
+        url_prop = component.get("url")
+
+        events.append({
+            "name": name,
+            "raw_summary": raw_summary,
+            "course": course,
+            "type": _classify_type(raw_summary),
+            "due": start.isoformat(),
+            "url": str(url_prop) if url_prop else None,
+        })
+    return sorted(events, key=lambda e: e["due"])
+
+
+def _via_ics() -> list[dict]:
+    ics_text = fetch_ics_text(config.MOODLE_ICS_URL)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    events = parse_ics(ics_text)
+    upcoming = [e for e in events if datetime.datetime.fromisoformat(e["due"]) >= now]
+    return [{"name": e["name"], "when": datetime.datetime.fromisoformat(e["due"])} for e in upcoming]
 
 
 def list_upcoming_events() -> list[dict]:
